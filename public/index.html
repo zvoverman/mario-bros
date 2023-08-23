@@ -1,6 +1,8 @@
 <html>
 
 <head>
+	<title>mario-bros</title>
+	<link rel="icon" type="image/x-icon" href="assets/yoshi.png">
 	<style>
 		body {
 			margin: 0;
@@ -17,18 +19,18 @@
         font-size: 14px;
         user-select: none;
       ">
-		<span>Score: <span id="scoreEl">0</span></span>
+		<span>mario-bros</span>
 	</div>
 
 	<div>
 
-		<canvas></canvas>
+		<canvas style='
+			width: 960px;
+			height: 720px;
+			image-rendering: pixelated;
+		  '></canvas>
 
 	</div>
-
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.10.2/gsap.min.js"
-		integrity="sha512-kVlGhj2qFy+KBCFuvjBJTGUMxbdqJKs4yK2jh0e0VPhWUPiPC87bzm4THmaaIee3Oj7j6sDpTTgm2EPPiESqBg=="
-		crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 	<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 	<script src="./js/classes/Sprite.js"></script>
 	<script src="./js/classes/Player.js"></script>

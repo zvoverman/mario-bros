@@ -10,6 +10,7 @@ class Sprite {
             this.height = this.image.height
         }
         this.currentFrame = 0
+        this.translation = {x: 0, y: 0}
     }
 
     draw() {

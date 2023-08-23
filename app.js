@@ -22,6 +22,8 @@ const backEndPlayers = {}
 
 // Game variables
 const gravity = 0.2
+const speed = 3
+const jumpMultiplier = 1.5
 
 // On socket connection...
 io.on('connection', (socket) => {
@@ -37,42 +39,53 @@ io.on('connection', (socket) => {
 			x: 0,
 			y: 0
 		},
-		sequenceNumber: 0
+		sequenceNumber: 0,
+		prevTimeStamp: 0,
+		currentTimeStamp: 0
 	}
 
 	io.emit('updatePlayers', backEndPlayers)
 
-	// On keydown event from client, handle backend player movement
-	socket.on('keydown', ({ keycode, sequenceNumber }) => {
-		backEndPlayers[socket.id].sequenceNumber = sequenceNumber
-		switch (keycode) {
-			case 'd':
-				backEndPlayers[socket.id].position.x += 5 // TODO - change how player movement worky
-				break
-			case 'a':
-				backEndPlayers[socket.id].position.x -= 5
-				break
-			case 'w':
-				backEndPlayers[socket.id].velocity.y = -5
-				break
+	// Run event
+	socket.on('run', ({ anchor, timeStamp, direction }) => {
+		backEndPlayers[socket.id].velocity.x = lerp(backEndPlayers[socket.id].velocity.x, direction * speed, 0.8) 
+	})
+
+	// Jump event
+	socket.on('jump', ({ anchor, timeStamp }) => {
+		if (backEndPlayers[socket.id].velocity.y === 0) {
+			backEndPlayers[socket.id].velocity.y = -speed * jumpMultiplier
 		}
 	})
 
+	// Stop event
+	socket.on('stop', ({ anchor, timeStamp }) => {
+		backEndPlayers[socket.id].velocity.x = lerp(backEndPlayers[socket.id].velocity.x, 0, 0.3) 
+	})
+
+	let start = Date.now()
+
+	// PHYSICS LOOP
 	// Authoritative server movement called on a set interval
 	setInterval(() => {
 		if (!backEndPlayers[socket.id]) return
 
-		// velocity
-		backEndPlayers[socket.id].position.x += backEndPlayers[socket.id].velocity.x
+		let currentTime = Date.now()
+		let delta = ((currentTime - start)) / 15 // use delta to compensate for setInterval() innacuracies
 
-		// gravity and floor collision
-		if (backEndPlayers[socket.id].position.y + 16 + backEndPlayers[socket.id].velocity.y >= 240) {
+		// velocity
+		backEndPlayers[socket.id].position.x += (backEndPlayers[socket.id].velocity.x * delta)
+
+		// if player hits bottom of canvas stop velocity.y and set canJump
+		if (backEndPlayers[socket.id].position.y + 16 + backEndPlayers[socket.id].velocity.y >= 240 - 32) {
 			backEndPlayers[socket.id].velocity.y = 0
-			backEndPlayers[socket.id].position.y = 240 - 16
-		} else {
-			backEndPlayers[socket.id].velocity.y += gravity
-			backEndPlayers[socket.id].position.y += backEndPlayers[socket.id].velocity.y
+			backEndPlayers[socket.id].position.y = 240 - 32 - 16
+		} else { // if player is still falling, player cannot jump
+			backEndPlayers[socket.id].velocity.y += gravity * delta
+			backEndPlayers[socket.id].position.y += (backEndPlayers[socket.id].velocity.y * delta)
 		}
+
+		start = currentTime
 
 		// Send backend player data to clients on a set interval
 		io.emit('updatePlayers', backEndPlayers)
@@ -91,3 +104,7 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
 	console.log(`Example app listening on port ${port}`)
 })
+
+function lerp( a, b, alpha ) {
+	return a + alpha * (b - a )
+}
