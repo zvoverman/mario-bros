@@ -7,7 +7,7 @@ const server = http.createServer(app)
 const { Server } = require('socket.io')
 const io = new Server(server, { pingInterval: 2000, pingTimeout: 5000 })
 
-const port = 3000
+const port = 7000
 
 app.use(express.static('./public'))
 app.use('/assets', express.static('assets'));
@@ -47,20 +47,23 @@ io.on('connection', (socket) => {
 	io.emit('updatePlayers', backEndPlayers)
 
 	// Run event
-	socket.on('run', ({ anchor, timeStamp, direction }) => {
+	socket.on('run', ({ timeStamp, direction }) => {
 		backEndPlayers[socket.id].velocity.x = lerp(backEndPlayers[socket.id].velocity.x, direction * speed, 0.8) 
+		backEndPlayers[socket.id].timeStamp = timeStamp
 	})
 
 	// Jump event
-	socket.on('jump', ({ anchor, timeStamp }) => {
+	socket.on('jump', ({ timeStamp }) => {
 		if (backEndPlayers[socket.id].velocity.y === 0) {
 			backEndPlayers[socket.id].velocity.y = -speed * jumpMultiplier
+			backEndPlayers[socket.id].timeStamp = timeStamp
 		}
 	})
 
 	// Stop event
-	socket.on('stop', ({ anchor, timeStamp }) => {
+	socket.on('stop', ({ timeStamp }) => {
 		backEndPlayers[socket.id].velocity.x = lerp(backEndPlayers[socket.id].velocity.x, 0, 0.3) 
+		backEndPlayers[socket.id].timeStamp = timeStamp
 	})
 
 	let start = Date.now()

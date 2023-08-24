@@ -49,7 +49,6 @@ socket.on('updatePlayers', (backEndPlayers, delta) => {
 
 				frontEndPlayers[id].velocity.x = backEndPlayer.velocity.x
 				frontEndPlayers[id].velocity.y = backEndPlayer.velocity.y
-				//console.log('dx: %f, dy: %f', frontEndPlayers[id].velocity.x, frontEndPlayers[id].velocity.y)
 
 				// Update all other players that are not this client
 			} else {
@@ -73,6 +72,12 @@ socket.on('updatePlayers', (backEndPlayers, delta) => {
 	}
 })
 
+const playerInputs = []
+const speed = 3
+const jumpMultiplier = 1.5
+const gravity = 0.2
+
+let start = Date.now()
 let drawCollisions = false
 
 // Animate the screen on the frontend
@@ -80,6 +85,26 @@ let animationId
 function animate(timeStamp) {
 	animationId = requestAnimationFrame(animate)
 
+	let currentTime = Date.now()
+	let delta = ((currentTime - start)) / 15 // use delta to compensate for loop innacuracies
+
+	// Client-side prediction
+	if (frontEndPlayers[socket.id] != null) {
+		frontEndPlayers[socket.id].position.x += (frontEndPlayers[socket.id].velocity.x * delta)
+
+		// if player hits bottom of canvas stop velocity.y and set canJump
+		if (frontEndPlayers[socket.id].position.y + 16 + frontEndPlayers[socket.id].velocity.y >= 240 - 32) {
+			frontEndPlayers[socket.id].velocity.y = 0
+			frontEndPlayers[socket.id].position.y = 240 - 32 - 16
+		} else { // if player is still falling, player cannot jump
+			frontEndPlayers[socket.id].velocity.y += gravity * delta
+			frontEndPlayers[socket.id].position.y += (frontEndPlayers[socket.id].velocity.y * delta)
+		}
+	}
+	start = currentTime
+
+
+	// Animate Canvas
 	background.draw()
 
 	for (const id in frontEndPlayers) { // for each frontend player...
@@ -116,10 +141,13 @@ setInterval(() => {
 	if (!frontEndPlayers[socket.id]) return
 
 	if (!keys.d.pressed && !keys.a.pressed) {
-		socket.emit('stop', { anchor: { x: frontEndPlayers[socket.id].position.x, y: frontEndPlayers[socket.id].position.y }, timeStamp: Date.now()})
+		socket.emit('stop', { timeStamp: Date.now() })
+		frontEndPlayers[socket.id].velocity.x = lerp(frontEndPlayers[socket.id].velocity.x, 0, 0.3) // client-side prediction
+		
 	}
 	if (keys.w.pressed && frontEndPlayers[socket.id].velocity.y === 0) {
-		socket.emit('jump', { anchor: { x: frontEndPlayers[socket.id].position.x, y: frontEndPlayers[socket.id].position.y }, timeStamp: Date.now()})
+		socket.emit('jump', { timeStamp: Date.now() })
+		frontEndPlayers[socket.id].velocity.y = lerp(frontEndPlayers[socket.id].velocity.y, speed * jumpMultiplier, 0.8) // client-side prediction
 	}
 }, 15)
 
@@ -128,15 +156,24 @@ window.addEventListener('keydown', (event) => {
 	if (!frontEndPlayers[socket.id]) return
 
 	if (event.key === 'd') {
-		socket.emit('run', { anchor: { x: frontEndPlayers[socket.id].position.x, y: frontEndPlayers[socket.id].position.y }, timeStamp: Date.now(), direction: 1 })
+		let timeStamp = Date.now()
+		playerInputs.push({ timeStamp, dx: speed, dy: 0 })
+		frontEndPlayers[socket.id].velocity.x = lerp(frontEndPlayers[socket.id].velocity.x, speed, 0.8)  // client-side prediction
+		socket.emit('run', { timeStamp, direction: 1 })
 		keys.d.pressed = true
 	}
 	if (event.key === 'a') {
-		socket.emit('run', { anchor: { x: frontEndPlayers[socket.id].position.x, y: frontEndPlayers[socket.id].position.y }, timeStamp: Date.now(), direction: -1 })
+		let timeStamp = Date.now()
+		playerInputs.push({ timeStamp, dx: -speed, dy: 0 })
+		frontEndPlayers[socket.id].velocity.x = lerp(frontEndPlayers[socket.id].velocity.x, -speed, 0.8) // client-side prediction
+		socket.emit('run', { timeStamp, direction: -1 })
 		keys.a.pressed = true
 	}
 	if (event.key === 'w') {
-		socket.emit('jump', { anchor: { x: frontEndPlayers[socket.id].position.x, y: frontEndPlayers[socket.id].position.y }, timeStamp: Date.now()})
+		let timeStamp = Date.now()
+		playerInputs.push({ timeStamp, dx: 0, dy: -speed })
+		frontEndPlayers[socket.id].velocity.y = lerp(frontEndPlayers[socket.id].velocity.y, speed * jumpMultiplier, 0.8) // client-side prediction
+		socket.emit('jump', { timeStamp })
 		keys.w.pressed = true
 	}
 	if (event.key === 'i') {
@@ -151,18 +188,22 @@ window.addEventListener('keyup', (event) => {
 	if (event.key === 'd') {
 		keys.d.pressed = false
 		if (keys.a.pressed) {
-			socket.emit('run', { anchor: { x: frontEndPlayers[socket.id].position.x, y: frontEndPlayers[socket.id].position.y }, timeStamp: Date.now(), direction: -1 })
+			socket.emit('run', { timeStamp: Date.now(), direction: -1 })
 		}
 	}
 	if (event.key === 'a') {
 		keys.a.pressed = false
 		if (keys.d.pressed) {
-			socket.emit('run', { anchor: { x: frontEndPlayers[socket.id].position.x, y: frontEndPlayers[socket.id].position.y }, timeStamp: Date.now(), direction: 1 })
+			socket.emit('run', { timeStamp: Date.now(), direction: 1 })
 		}
 	}
 	if (event.key === 'w') {
 		keys.w.pressed = false
 	}
 })
+
+function lerp( a, b, alpha ) {
+	return a + alpha * (b - a )
+}
 
 
